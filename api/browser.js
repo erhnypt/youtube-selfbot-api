@@ -8,7 +8,7 @@ import { SocksProxyAgent } from "socks-proxy-agent";
 import { HttpProxyAgent } from "http-proxy-agent";
 import { HttpsProxyAgent } from "https-proxy-agent";
 
-import { ConnectFingerprinter, GenerateFingerprint } from "playwright-anti-fingerprinter";
+import { ConnectFingerprinter, GenerateFingerprint, LaunchBrowser } from "playwright-anti-fingerprinter";
 
 import pageClass from "./page.js"
 import { firefox } from "playwright"
@@ -136,45 +136,42 @@ class YoutubeSelfbotBrowser {
 
     async setup() {
         return new Promise(async (resolve, reject) => {
-            got({
-                url: "https://lumtest.com/myip.json",
-                agent: this.extra.proxy ? setAgent(this.extra.proxy) : undefined
-            }).then((result) => {
-                this.ipInfo = JSON.parse(result.body)
+            let fingerprint = this.extra.fingerprint || {
+                ...fingerprintGenerator(),
+                proxy: this.extra.proxy
+            }
 
-                firefox.launchPersistentContext(this.extra.userDataDir, {
-                    ...this.opts,
+            this.fingerprint = fingerprint;
 
-                    serviceWorkers: "block",
-                    geolocation: {
-                        latitude: this.ipInfo.geo.latitude,
-                        longitude: this.ipInfo.geo.longitude,
-                        //accuracy: Math.random() / 2 + 0.5
-                    },
-                    locale: countryLocaleMap.getLocaleByAlpha2(this.ipInfo.geo.country),
-                    timezoneId: this.ipInfo.geo.tz
-                }).then(async (context) => {
-                    this.context = context
+            const { browser, ipInfo } = await LaunchBrowser("firefox", {
+                ...this.opts,
+                serviceWorkers: "block",
+                bypassCSP: true,
+            }, fingerprint)
 
-                    context.setDefaultTimeout(this.extra.timeout)
-                    context.setDefaultNavigationTimeout(this.extra.timeout)
+            this.browser = browser
+            this.context = await browser.newContext()
+            this.ipInfo = ipInfo
 
-                    for (let extension of extensions) {
-                        if (await extension.verify(this.extra)) {
-                            await context.addInitScript(extension.code).catch(reject)
-                        }
-                    }
+            this.context.setDefaultTimeout(this.extra.timeout)
+            this.context.setDefaultNavigationTimeout(this.extra.timeout)
 
-                    await context.addInitScript(() => {
-                        let DateNow = Date.now()
-                        let DateYear = DateNow + 31536000000
-                        localStorage.setItem('yt-player-quality', `{\"data\":\"{\\\"quality\\\":144,\\\"previousQuality\\\":240}\",\"expiration\":${DateYear},\"creation\":${DateNow}}`);
-                        localStorage.setItem('yt-player-volume', `{"data":"{\\"volume\\":0,\\"muted\\":false}","expiration":${DateYear},"creation":${DateNow}}`);
-                    }).catch(reject)
+            await (await this.context.newPage()).goto("about:blank") // making initial page
 
-                    resolve()
-                }).catch(reject)
+            for (let extension of extensions) {
+                if (await extension.verify(this.extra)) {
+                    await this.context.addInitScript(extension.code).catch(reject)
+                }
+            }
+
+            await this.context.addInitScript(() => {
+                let DateNow = Date.now()
+                let DateYear = DateNow + 31536000000
+                localStorage.setItem('yt-player-quality', `{\"data\":\"{\\\"quality\\\":144,\\\"previousQuality\\\":240}\",\"expiration\":${DateYear},\"creation\":${DateNow}}`);
+                localStorage.setItem('yt-player-volume', `{"data":"{\\"volume\\":0,\\"muted\\":false}","expiration":${DateYear},"creation":${DateNow}}`);
             }).catch(reject)
+
+            resolve()
         })
     }
 
@@ -215,56 +212,44 @@ class YoutubeSelfbotBrowser {
     }
 
     async newPage() {
-        return new Promise(async (resolve, reject) => {
-            try {
-                const [page] = await Promise.all([
-                    this.context.waitForEvent('page'),
-                    (await this.context.pages())[0].evaluate(() => window.open('about:blank'))
-                ]);
+        const [page] = await Promise.all([
+            this.context.waitForEvent('page'),
+            (await this.context.pages())[0].evaluate(() => window.open('about:blank'))
+        ]);
 
-                if (!this.#firstPageCreated) {
-                    this.#firstPageCreated = true;
-                    (await this.context.pages())[0].close()
+        if (!this.#firstPageCreated) {
+            this.#firstPageCreated = true;
+            (await this.context.pages())[0].close()
+        }
+
+        let pgClass = new pageClass(page, this.extra, this)
+
+        await ConnectFingerprinter("firefox", page, {
+            fingerprint: this.fingerprint,
+            requestInterceptor
+        })
+
+        page.on("response", async (res) => {
+            let req = res.request()
+
+            let isVideo = (await req.url()).includes("googlevideo.com")
+
+            if (isVideo) {
+                if (pgClass.__onContinue) {
+                    pgClass.__onContinue()
+                    pgClass.__onContinue = undefined
                 }
+            }
 
-                let pgClass = new pageClass(page, this.extra, this)
-                let fingerprint = this.extra.fingerprint || {
-                    ...fingerprintGenerator(),
-                    proxy: this.extra.proxy
-                }
+            let shouldCalculateRequestSize = await shouldProxyRequest(page, req) == 2
 
-                await ConnectFingerprinter("firefox", page, {
-                    fingerprint,
-                    requestInterceptor
-                })
-
-                this.fingerprint = fingerprint
-
-                page.on("response", async (res) => {
-                    let req = res.request()
-
-                    let isVideo = (await req.url()).includes("googlevideo.com")
-
-                    if (isVideo) {
-                        if (pgClass.__onContinue) {
-                            pgClass.__onContinue()
-                            pgClass.__onContinue = undefined
-                        }
-                    }
-
-                    let shouldCalculateRequestSize = await shouldProxyRequest(page, req) == 2
-
-                    if (shouldCalculateRequestSize) {
-                        this.emit("bandwith", pgClass.id, "download", await calculateRequestSize(req))
-                        this.emit("bandwith", pgClass.id, "upload", await calculateResponseSize(res))
-                    }
-                })
-
-                resolve(pgClass)
-            } catch (err) {
-                reject(new Error(err))
+            if (shouldCalculateRequestSize) {
+                this.emit("bandwith", pgClass.id, "download", await calculateRequestSize(req))
+                this.emit("bandwith", pgClass.id, "upload", await calculateResponseSize(res))
             }
         })
+
+        return pgClass
     }
 }
 

@@ -156,7 +156,7 @@ class YoutubeSelfbotBrowser {
             this.context.setDefaultTimeout(this.extra.timeout)
             this.context.setDefaultNavigationTimeout(this.extra.timeout)
 
-            await (await this.context.newPage()).goto("about:blank") // making initial page
+            //await (await this.context.newPage()).goto("about:blank") // making initial page
 
             for (let extension of extensions) {
                 if (await extension.verify(this.extra)) {
@@ -212,10 +212,12 @@ class YoutubeSelfbotBrowser {
     }
 
     async newPage() {
-        const [page] = await Promise.all([
+        /*const [page] = await Promise.all([
             this.context.waitForEvent('page'),
             (await this.context.pages())[0].evaluate(() => window.open('about:blank'))
-        ]);
+        ]);*/
+
+        const page = await this.context.newPage()
 
         if (!this.#firstPageCreated) {
             this.#firstPageCreated = true;

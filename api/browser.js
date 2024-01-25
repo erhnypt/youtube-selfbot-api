@@ -4,15 +4,10 @@ import * as path from "path"
 import got from "got"
 
 import { calculateRequestSize, calculateResponseSize } from 'puppeteer-bandwidth-calculator';
-import { SocksProxyAgent } from "socks-proxy-agent";
-import { HttpProxyAgent } from "http-proxy-agent";
-import { HttpsProxyAgent } from "https-proxy-agent";
 
-import { ConnectFingerprinter, GenerateFingerprint, LaunchBrowser } from "playwright-anti-fingerprinter";
+import { GenerateFingerprint, LaunchBrowser } from "playwright-anti-fingerprinter";
 
 import pageClass from "./page.js"
-import { firefox } from "playwright"
-import countryLocaleMap from 'country-locale-map';
 
 import { dirname } from 'path';
 import { createRequire } from 'module';
@@ -25,19 +20,6 @@ let require = createRequire(import.meta.url);
 let extensions = fs.readdirSync(path.join(__dirname, "/defaultExtensions"))
     .map((v) => v = path.join(__dirname, "/defaultExtensions/", v))
     .map((v) => v = require(v))
-
-const setAgent = (proxy) => {
-    if (proxy.startsWith("socks")) {
-        return {
-            http: new SocksProxyAgent(proxy),
-            https: new SocksProxyAgent(proxy)
-        };
-    }
-    return {
-        http: new HttpProxyAgent(proxy),
-        https: new HttpsProxyAgent(proxy)
-    };
-};
 
 function fingerprintGenerator() {
     return GenerateFingerprint("firefox", {
@@ -53,7 +35,6 @@ function fingerprintGenerator() {
     })
 }
 
-let bannedResourceTypes = ["image", "font", "other", "media"]
 async function shouldProxyRequest(page, request) {
     return 2;
     try {
@@ -92,20 +73,6 @@ async function shouldProxyRequest(page, request) {
     } catch (err) {
         console.error(err)
         return 3
-    }
-}
-
-async function requestInterceptor(page, requestData, route) {
-    let request = route.request()
-    let shouldProxy = await shouldProxyRequest(page, request)
-
-    switch (shouldProxy) {
-        case 3:
-            return "abort"
-        case 2:
-            return "proxy"
-        case 1:
-            return "direct"
     }
 }
 
@@ -156,7 +123,7 @@ class YoutubeSelfbotBrowser {
             this.context.setDefaultTimeout(this.extra.timeout)
             this.context.setDefaultNavigationTimeout(this.extra.timeout)
 
-            //await (await this.context.newPage()).goto("about:blank") // making initial page
+            await (await this.context.newPage()).goto("about:blank") // making initial page
 
             for (let extension of extensions) {
                 if (await extension.verify(this.extra)) {
@@ -182,6 +149,8 @@ class YoutubeSelfbotBrowser {
                     this.context.waitForEvent('page'),
                     (await this.context.pages())[0].evaluate(() => window.open('about:blank'))
                 ]);
+                //const page = await this.context.newPage()
+
                 await page.context().clearCookies();
 
                 await page.goto("https://www.youtube.com");
@@ -212,12 +181,12 @@ class YoutubeSelfbotBrowser {
     }
 
     async newPage() {
-        /*const [page] = await Promise.all([
+        const [page] = await Promise.all([
             this.context.waitForEvent('page'),
             (await this.context.pages())[0].evaluate(() => window.open('about:blank'))
-        ]);*/
+        ]);
 
-        const page = await this.context.newPage()
+        //const page = await this.context.newPage()
 
         if (!this.#firstPageCreated) {
             this.#firstPageCreated = true;
@@ -225,11 +194,7 @@ class YoutubeSelfbotBrowser {
         }
 
         let pgClass = new pageClass(page, this.extra, this)
-
-        await ConnectFingerprinter("firefox", page, {
-            fingerprint: this.fingerprint,
-            requestInterceptor
-        })
+        await pgClass.initPage()
 
         page.on("response", async (res) => {
             let req = res.request()

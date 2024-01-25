@@ -11,15 +11,16 @@ async function checkCookiesAndHandleConsent(page) {
     const isLoggedIn = currentCookies.some((cookie) => ACCEPTED_COOKIES.includes(cookie.name));
 
     if (!isLoggedIn) {
-        const acceptCookies = await Promise.race([
-            page.waitForSelector("ytd-button-renderer.ytd-consent-bump-v2-lightbox:nth-child(2) > yt-button-shape:nth-child(1) > button:nth-child(1)"),
-            page.waitForSelector(".csJmFc > form:nth-child(3) > div:nth-child(1) > div:nth-child(1) > button:nth-child(1) > div:nth-child(3)"),
-        ]);
+        let rejectCookies = await Promise.race([
+            page.waitForSelector("#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.eom-buttons.style-scope.ytd-consent-bump-v2-lightbox > div:nth-child(1) > ytd-button-renderer:nth-child(1) > yt-button-shape > button"),
+            page.waitForSelector("xpath=/xpath/html/body/c-wiz/div/div/div/div[2]/div[1]/div[3]/div[1]/form[2]/div/div/button/div[1]"),
+        ]).catch(reject)
+        if (!rejectCookies) return;
 
         await Promise.all([
-            page.waitForNavigation(),
-            acceptCookies.click(),
-        ]);
+            page.waitForNavigation({ waitUntil: "load" }),
+            rejectCookies.click(),
+        ]).catch(reject)
 
         await page.waitForSelector(`#contents`);
     }

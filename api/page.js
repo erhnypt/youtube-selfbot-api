@@ -1,6 +1,8 @@
 import { dirname } from 'path';
 import { createRequire } from 'module';
 
+import { ConnectFingerprinter } from "playwright-anti-fingerprinter";
+
 import { fileURLToPath } from 'url';
 
 let __dirname = dirname(fileURLToPath(import.meta.url));
@@ -15,6 +17,62 @@ import * as path from "path"
 import * as uuid from "uuid"
 import { to } from "await-to-js";
 import getVideoInfo from "./getVideoInfo.js"
+
+let bannedResourceTypes = ["image", "font", "other", "media"]
+async function shouldProxyRequest(page, request) {
+    return 2;
+    try {
+        let acceptedCookies = ["DEVICE_INFO", "VISITOR_INFO1_LIVE", "GPS"]
+
+        let page_url = page.url()
+        let url = request.url()
+        let currentCookies = await page.context().cookies()
+        let type = request.resourceType()
+
+        if (url.startsWith("data:image")) return 1
+        if (url.includes("gstatic")) return 1
+
+        let isLoggedIn = false
+
+        for (let cookie of currentCookies) {
+            if (acceptedCookies.includes(cookie.name)) {
+                isLoggedIn = true
+                break
+            }
+        }
+
+        if (!isLoggedIn && url.includes("googlevideo.com") && !page_url.includes("/shorts/")) return 3
+
+        if (request.method() == "GET") {
+            let isDocument = type == "document" || type == "script" || type == "manifest" || type == "stylesheet"
+
+            //if (bannedResourceTypes.includes(type)) return 3
+            //if (url.includes("fonts.")) return 3
+
+            if (isDocument && type == "document") return 2
+            if (isDocument) return 1
+        }
+
+        return 2
+    } catch (err) {
+        console.error(err)
+        return 3
+    }
+}
+
+async function requestInterceptor(page, requestData, route) {
+    let request = route.request()
+    let shouldProxy = await shouldProxyRequest(page, request)
+
+    switch (shouldProxy) {
+        case 3:
+            return "abort"
+        case 2:
+            return "proxy"
+        case 1:
+            return "direct"
+    }
+}
 
 let methodFunctions = {
     search: require(path.join(__dirname, "/functions/search.cjs")),
@@ -109,6 +167,15 @@ class YoutubeSelfbotPage {
     waitForXPath(arg) { return this.page.waitForSelector(`xpath=${arg}`) }
     workers() { return this.page.workers(...arguments) }
 
+    async initPage(){
+        await this.page.unroute("**/**")
+
+        await ConnectFingerprinter("firefox", this.page, {
+            fingerprint: this.browser.fingerprint,
+            requestInterceptor
+        })
+    }
+
     gotoVideo(method = "direct", id, options = {}) {
         return new Promise(async (resolve, reject) => {
             this.videoInfo = await getVideoInfo(id, this.extra.proxy, await this.getCookies())
@@ -166,10 +233,9 @@ class YoutubeSelfbotPage {
             this.browser.emit("newVideoContext", this.id, good, id)
 
             let watcherContext = this.createWatcherContext()
-            watcherContext.setup().then(() => {
+            watcherContext.setup().then(async () => {
                 resolve(watcherContext)
             }).catch(reject)
-
         })
     }
 

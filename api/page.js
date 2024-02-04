@@ -206,16 +206,25 @@ class YoutubeSelfbotPage {
                         var [err, wasFound] = await to(methodFunctions.search(this, options))
                         success = !(err || !wasFound)
 
+                        if(!success){
+                            console.error(`Error navigating to video using "search": ${err}`)
+                        }
                         break;
                     case "suggestions":
                         var [err, wasFound] = await to(methodFunctions.suggestions(this, options))
                         success = !(err || !wasFound)
 
+                        if(!success){
+                            console.error(`Error navigating to video using "suggestions": ${err}`)
+                        }
                         break;
                     case "subscribers":
                         var [err, wasFound] = await to(methodFunctions.subscribers(this, options))
                         success = !(err || !wasFound)
 
+                        if(!success){
+                            console.error(`Error navigating to video using "subscribers": ${err}`)
+                        }
                         break;
                     default:
                         success = false

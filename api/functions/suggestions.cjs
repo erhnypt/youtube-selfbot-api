@@ -1,26 +1,22 @@
 const { default: to } = require("await-to-js")
 
-let ACCEPTED_COOKIES = [
-    "DEVICE_INFO",
-    "VISITOR_INFO1_LIVE",
-    "GPS",
-]
 
 async function checkCookiesAndHandleConsent(page) {
     const currentCookies = await page.context().cookies();
-    const isLoggedIn = currentCookies.some((cookie) => ACCEPTED_COOKIES.includes(cookie.name));
+    let isLoggedIn = currentCookies.some((v) => v.name == "SOCS")
 
     if (!isLoggedIn) {
+        let declineSelector = "#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.eom-buttons.style-scope.ytd-consent-bump-v2-lightbox > div:nth-child(1) > ytd-button-renderer:nth-child(1) > yt-button-shape > button"
+
         let rejectCookies = await Promise.race([
-            page.waitForSelector("#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.eom-buttons.style-scope.ytd-consent-bump-v2-lightbox > div:nth-child(1) > ytd-button-renderer:nth-child(1) > yt-button-shape > button"),
-            page.waitForSelector("xpath=/xpath/html/body/c-wiz/div/div/div/div[2]/div[1]/div[3]/div[1]/form[2]/div/div/button/div[1]"),
-        ]).catch(reject)
+            page.waitForSelector(declineSelector, {timeout: 10 * 1000}),
+            //page.waitForSelector("xpath=/xpath/html/body/c-wiz/div/div/div/div[2]/div[1]/div[3]/div[1]/form[2]/div/div/button/div[1]"),
+        ]).catch(() => {})
         if (!rejectCookies) return;
 
-        await Promise.all([
-            page.waitForNavigation({ waitUntil: "load" }),
-            rejectCookies.click(),
-        ]).catch(reject)
+        rejectCookies.click();
+
+        await page.waitForSelector(declineSelector, { state: 'hidden' });
 
         await page.waitForSelector(`#contents`);
     }
@@ -66,7 +62,6 @@ async function navigateToVideoPage(page, videoInfo, options) {
     }
 
     const [err, wasFound] = await to(clickVideoLink(page, videoInfo, options.scroll || 10));
-    console.log(err, wasFound)
 
     if (err) {
         throw err;

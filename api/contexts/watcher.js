@@ -4,13 +4,6 @@ let videoStates_normal = ["PLAYING", "PAUSED", "BUFFERING"]
 
 videoStates_normal[-1] = "FINISHED"
 
-let ACCEPTED_COOKIES = [
-    "DEVICE_INFO",
-    "VISITOR_INFO1_LIVE",
-    "GPS",
-    "SSID", "HSID"
-]
-
 class watcherContext {
     #page = {}
     #parent = {}
@@ -28,18 +21,10 @@ class watcherContext {
         return new Promise(async (resolve, reject) => {
             try {
                 let currentCookies = await this.#browser.context.cookies().catch(reject)
-                let isLoggedIn = false
-
-                if (!currentCookies) return;
-                for (let cookie of currentCookies) {
-                    if (ACCEPTED_COOKIES.includes(cookie.name)) {
-                        isLoggedIn = true
-                        break
-                    }
-                }
+                let isLoggedIn = currentCookies.some((v) => v.name == "SOCS")
 
                 if (!isLoggedIn) {
-                    let rejectCookies = await Promise.race([
+                    /*let rejectCookies = await Promise.race([
                         this.#page.waitForSelector("#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.eom-buttons.style-scope.ytd-consent-bump-v2-lightbox > div:nth-child(1) > ytd-button-renderer:nth-child(1) > yt-button-shape > button"),
                         this.#page.waitForSelector("xpath=/xpath/html/body/c-wiz/div/div/div/div[2]/div[1]/div[3]/div[1]/form[2]/div/div/button/div[1]"),
                     ]).catch(reject)
@@ -48,7 +33,19 @@ class watcherContext {
                     await Promise.all([
                         this.#page.waitForNavigation({ waitUntil: "load" }),
                         rejectCookies.click(),
-                    ]).catch(reject)
+                    ]).catch(reject)*/
+
+                    let declineSelector = "#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.eom-buttons.style-scope.ytd-consent-bump-v2-lightbox > div:nth-child(1) > ytd-button-renderer:nth-child(1) > yt-button-shape > button"
+
+                    let rejectCookies = await Promise.race([
+                        this.#page.waitForSelector(declineSelector, {timeout: 10 * 1000}),
+                        //page.waitForSelector("xpath=/xpath/html/body/c-wiz/div/div/div/div[2]/div[1]/div[3]/div[1]/form[2]/div/div/button/div[1]"),
+                    ]).catch(() => {})
+                    if (rejectCookies){
+                        rejectCookies.click();
+            
+                        await this.#page.waitForSelector(declineSelector, { state: 'hidden' });
+                    }
                 }
 
                 //if (!this.#parent.videoInfo.isLive) {

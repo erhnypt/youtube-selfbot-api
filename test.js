@@ -43,8 +43,8 @@ async function run(){
     await googleContext.login(opts, cookies)
     writeFileSync("./cookies.json", JSON.stringify(await page.getCookies()))*/
 
-    let watcherContext = await page.gotoVideo("search", "https://www.youtube.com/watch?v=KSylo01n5FY", {
-        forceFind: false
+    let watcherContext = await page.gotoVideo("search", "Tp0dvbONMDU", {
+        forceFind: true
     })
 
     console.log("done 1")
@@ -58,7 +58,4 @@ async function run(){
 
     }, 500)()*/
 }
-
 run()
-//run()
-//run()

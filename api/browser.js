@@ -110,14 +110,17 @@ class YoutubeSelfbotBrowser {
 
             this.fingerprint = fingerprint;
 
-            const { browser, ipInfo } = await LaunchBrowser("firefox", {
+            let opts = {
                 ...this.opts,
                 serviceWorkers: "block",
                 bypassCSP: true,
-            }, fingerprint)
+            }
+
+
+            const { browser, ipInfo } = await LaunchBrowser("firefox", opts, fingerprint)
 
             this.browser = browser
-            this.context = await browser.newContext()
+            this.context = await browser.newContext(opts)
             this.ipInfo = ipInfo
 
             this.context.setDefaultTimeout(this.extra.timeout)

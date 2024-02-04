@@ -1,11 +1,5 @@
 const { default: to } = require("await-to-js")
 
-let ACCEPTED_COOKIES = [
-    "DEVICE_INFO",
-    "VISITOR_INFO1_LIVE",
-    "GPS",
-]
-
 let filter_paths = {
     upload_date: {
         last_hour: `ytd-search-filter-group-renderer.style-scope:nth-child(1) > ytd-search-filter-renderer:nth-child(2) > a`,
@@ -49,24 +43,24 @@ let filter_paths = {
 async function gotoVideo(page, title) {
     await page.goto(`https://www.youtube.com/results?search_query=${title}`, { waitUntil: "networkidle" });
     await page.waitForSelector(`#contents`);
+}
 
+async function foundVideo(page){
     const [found] = await to(Promise.race([
-        page.waitForSelector("ytd-video-renderer.ytd-item-section-renderer:nth-child(1)"),
+        page.waitForSelector("ytd-video-renderer.ytd-item-section-renderer"),
         page.waitForSelector(".promo-title"),
     ]));
-
 
     if (await page.$(`.promo-title`)) {
         return false;
     }
 
     return true;
-
 }
 
 async function checkCookiesAndHandleConsent(page) {
     const currentCookies = await page.context().cookies();
-    const isLoggedIn = currentCookies.some((cookie) => ACCEPTED_COOKIES.includes(cookie.name));
+    let isLoggedIn = currentCookies.some((v) => v.name == "SOCS")
 
     if (!isLoggedIn) {
         /*const acceptCookies = await Promise.race([
@@ -74,16 +68,17 @@ async function checkCookiesAndHandleConsent(page) {
             page.waitForSelector(".csJmFc > form:nth-child(3) > div:nth-child(1) > div:nth-child(1) > button:nth-child(1) > div:nth-child(3)"),
         ]);*/
 
+        let declineSelector = "#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.eom-buttons.style-scope.ytd-consent-bump-v2-lightbox > div:nth-child(1) > ytd-button-renderer:nth-child(1) > yt-button-shape > button"
+
         let rejectCookies = await Promise.race([
-            page.waitForSelector("#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.eom-buttons.style-scope.ytd-consent-bump-v2-lightbox > div:nth-child(1) > ytd-button-renderer:nth-child(1) > yt-button-shape > button"),
-            page.waitForSelector("xpath=/xpath/html/body/c-wiz/div/div/div/div[2]/div[1]/div[3]/div[1]/form[2]/div/div/button/div[1]"),
-        ]).catch(reject)
+            page.waitForSelector(declineSelector, {timeout: 10 * 1000}),
+            //page.waitForSelector("xpath=/xpath/html/body/c-wiz/div/div/div/div[2]/div[1]/div[3]/div[1]/form[2]/div/div/button/div[1]"),
+        ]).catch(() => {})
         if (!rejectCookies) return;
 
-        await Promise.all([
-            page.waitForNavigation({ waitUntil: "load" }),
-            rejectCookies.click(),
-        ]).catch(reject)
+        rejectCookies.click();
+
+        await page.waitForSelector(declineSelector, { state: 'hidden' });
 
         await page.waitForSelector(`#contents`);
     }
@@ -255,13 +250,14 @@ async function main(pageContainer, options) {
     const title = (options.title || videoInfo.title).split(" ").join("+");
     const page = pageContainer.page;
 
-    const canSearchVideo = await gotoVideo(page, title);
+    await gotoVideo(page, title);
+    await checkCookiesAndHandleConsent(page);
+
+    const canSearchVideo = await foundVideo(page);
 
     if (!canSearchVideo) {
         throw new Error("No video found for search");
     }
-
-    await checkCookiesAndHandleConsent(page);
 
     if (options.filters) {
         for (const filterName in options.filters) {
@@ -281,7 +277,6 @@ async function main(pageContainer, options) {
             throw new Error(error);
         }
     }
-
 
     return await navigateToVideoPage(page, videoInfo, options);
 }

@@ -112,21 +112,22 @@ class YoutubeSelfbotBrowser {
 
             let opts = {
                 ...this.opts,
+                ...this.extra,
                 serviceWorkers: "block",
                 bypassCSP: true,
             }
 
-
             const { browser, ipInfo } = await LaunchBrowser("firefox", opts, fingerprint)
 
             this.browser = browser
-            this.context = await browser.newContext(opts)
+            this.context = browser
+            //this.context = await browser.newContext(opts)
             this.ipInfo = ipInfo
 
             this.context.setDefaultTimeout(this.extra.timeout)
             this.context.setDefaultNavigationTimeout(this.extra.timeout)
 
-            await (await this.context.newPage()).goto("about:blank") // making initial page
+            //await (await this.context.newPage()).goto("about:blank") // making initial page
 
             for (let extension of extensions) {
                 if (await extension.verify(this.extra)) {
@@ -135,10 +136,7 @@ class YoutubeSelfbotBrowser {
             }
 
             await this.context.addInitScript(() => {
-                let DateNow = Date.now()
-                let DateYear = DateNow + 31536000000
-                localStorage.setItem('yt-player-quality', `{\"data\":\"{\\\"quality\\\":144,\\\"previousQuality\\\":240}\",\"expiration\":${DateYear},\"creation\":${DateNow}}`);
-                localStorage.setItem('yt-player-volume', `{"data":"{\\"volume\\":0,\\"muted\\":false}","expiration":${DateYear},"creation":${DateNow}}`);
+                localStorage.setItem('volume', `0`);
             }).catch(reject)
 
             resolve()
@@ -156,7 +154,7 @@ class YoutubeSelfbotBrowser {
 
                 await page.context().clearCookies();
 
-                await page.goto("https://www.youtube.com");
+                await page.goto("https://www.rumble.com");
                 await page.evaluate(() => localStorage.clear());
 
                 await page.close();
@@ -201,8 +199,9 @@ class YoutubeSelfbotBrowser {
 
         page.on("response", async (res) => {
             let req = res.request()
+            let url = await req.url()
 
-            let isVideo = (await req.url()).includes("googlevideo.com")
+            let isVideo = url.includes("hugh.cdn.rumble.cloud/video") || url.includes("hugh.cdn.rumble.cloud/live")
 
             if (isVideo) {
                 if (pgClass.__onContinue) {

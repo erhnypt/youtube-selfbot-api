@@ -58,6 +58,8 @@ class watcherContext {
                 await this.setResolution(resolutionChosen)
 
                 this.#parent.__onContinue = resolve
+
+                await this.play()
             } catch (err) {
                 reject(new Error(err))
             }

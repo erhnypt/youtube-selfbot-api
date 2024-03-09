@@ -38,6 +38,6 @@ async function run(){
 
     let watcherContext = await page.gotoVideo("direct", "v4fyabw")
 
-    await watcherContext.comment("Nice video bro")
+    //await watcherContext.comment("Nice video bro")
 }
 run()

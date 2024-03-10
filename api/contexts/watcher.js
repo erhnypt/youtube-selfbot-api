@@ -17,7 +17,7 @@ class watcherContext {
     setup() {
         return new Promise(async (resolve, reject) => {
             try {
-                await this.#page.waitForSelector(`.rumbles-vote-pill-up`, {visible: true}).catch(reject);
+                await this.#page.waitForSelector(`.rumbles-vote-pill-up`, { visible: true }).catch(reject);
 
                 let playerElement = await this.#page.waitForSelector(`video`).catch(reject)
                 this.#parent.last_video_request = Date.now()
@@ -38,6 +38,7 @@ class watcherContext {
                     }).catch(reject)
                 }
 
+
                 await playerElement.evaluate(p => {
                     p.addEventListener("pause", (event) => {
                         videoStateChanged(1)
@@ -46,11 +47,13 @@ class watcherContext {
                     p.addEventListener("play", (event) => {
                         videoStateChanged(0)
                     });
-                    
+
                     p.addEventListener("ended", (event) => {
                         videoStateChanged(2)
                     });
                 }).catch(reject)
+
+                await this.play();
 
                 let resolutions = await this.resolutions();
                 let resolutionChosen = resolutions.sort((a, b) => a - b)[0]
@@ -59,7 +62,6 @@ class watcherContext {
 
                 this.#parent.__onContinue = resolve
 
-                await this.play()
             } catch (err) {
                 reject(new Error(err))
             }
@@ -77,19 +79,19 @@ class watcherContext {
                         mbps: 1048576,
                         kbps: 1024,
                     };
-                
+
                     const combo = abbreviatedString.split(" ");
                     return abbreviations[combo[1]] * parseFloat(combo[0]);
                 }
 
                 let qualities = []
                 let qualityList = Array.from(document.querySelector(`div[title="Playback settings"]`).children[1].children[2].childNodes);
-                
-                for(let qualityButton of qualityList){
+
+                for (let qualityButton of qualityList) {
                     let qualityText = Array.from(qualityButton.childNodes)[1].innerText.split(", ")
                     qualityText[0] = qualityText[0].split("x")
 
-                    if(!qualityText[1]) continue;
+                    if (!qualityText[1]) continue;
 
                     qualities.push({
                         width: parseInt(qualityText[0][0]),
@@ -114,26 +116,26 @@ class watcherContext {
                         mbps: 1048576,
                         kbps: 1024,
                     };
-                
+
                     const combo = abbreviatedString.split(" ");
                     return abbreviations[combo[1]] * parseFloat(combo[0]);
                 }
 
 
                 let qualityList = Array.from(document.querySelector(`div[title="Playback settings"]`).children[1].children[2].childNodes);
-                
-                for(let qualityButton of qualityList){
+
+                for (let qualityButton of qualityList) {
                     let qualityText = Array.from(qualityButton.childNodes)[1].innerText.split(", ")
                     qualityText[0] = qualityText[0].split("x")
 
-                    if(!qualityText[1]) continue;
+                    if (!qualityText[1]) continue;
 
-                    if(quality.width == qualityText[0][0]
-                        && quality.height == qualityText[0][1] 
+                    if (quality.width == qualityText[0][0]
+                        && quality.height == qualityText[0][1]
                         && quality.bitrate == convertBitrateAbbreviatedNumber(qualityText[1])
-                   ){
-                       qualityButton.click();
-                   }
+                    ) {
+                        qualityButton.click();
+                    }
                 }
             }, quality).catch(reject).then(resolve)
         })
@@ -142,7 +144,7 @@ class watcherContext {
     async pause() {
         return new Promise(async (resolve, reject) => {
             this.#page.evaluate(() => {
-                let video = Array.from(document.querySelectorAll("video")).pop()
+                let video = Array.from(document.querySelectorAll("video")).shift()
                 video.pause()
             }).catch(reject).then(resolve)
         })
@@ -151,7 +153,7 @@ class watcherContext {
     async play() {
         return new Promise(async (resolve, reject) => {
             this.#page.evaluate(() => {
-                let video = Array.from(document.querySelectorAll("video")).pop()
+                let video = Array.from(document.querySelectorAll("video")).shift()
                 video.play()
             }).catch(reject).then(resolve)
         })
@@ -160,7 +162,7 @@ class watcherContext {
     async seek(time) {
         return new Promise(async (resolve, reject) => {
             this.#page.evaluate((time) => {
-                let video = Array.from(document.querySelectorAll("video")).pop()
+                let video = Array.from(document.querySelectorAll("video")).shift()
                 video.currentTime = time
             }, time).catch(reject).then(resolve)
         })
@@ -169,7 +171,7 @@ class watcherContext {
     async time() {
         return new Promise(async (resolve, reject) => {
             this.#page.evaluate(() => {
-                let video = Array.from(document.querySelectorAll("video")).pop()
+                let video = Array.from(document.querySelectorAll("video")).shift()
                 return video.currentTime
             }).catch(reject).then(resolve)
         })
@@ -178,7 +180,7 @@ class watcherContext {
     async duration() {
         return new Promise(async (resolve, reject) => {
             this.#page.evaluate(() => {
-                let video = Array.from(document.querySelectorAll("video")).pop()
+                let video = Array.from(document.querySelectorAll("video")).shift()
                 return video.duration
             }).catch(reject).then(resolve)
         })
@@ -224,7 +226,7 @@ class watcherContext {
 
     async comment(message) {
         return new Promise(async (resolve, reject) => {
-            if(await this.areCommentsLocked().catch(reject)){
+            if (await this.areCommentsLocked().catch(reject)) {
                 return reject(new Error("Unable to make comment because video has comments locked."))
             }
 

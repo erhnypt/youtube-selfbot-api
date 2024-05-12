@@ -53,15 +53,16 @@ class watcherContext {
                     });
                 }).catch(reject)
 
-                await this.play();
+                await this.play()
 
                 let resolutions = await this.resolutions();
                 let resolutionChosen = resolutions.sort((a, b) => a - b)[0]
 
                 await this.setResolution(resolutionChosen)
 
-                this.#parent.__onContinue = resolve
+                this.#parent.__onContinue = resolve;
 
+                setTimeout(() => this.play(), 1000)
             } catch (err) {
                 reject(new Error(err))
             }

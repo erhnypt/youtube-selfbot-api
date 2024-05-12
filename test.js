@@ -36,7 +36,9 @@ async function run(){
 
     // normal test
 
-    let watcherContext = await page.gotoVideo("direct", "v4fyabw")
+    console.time("going to video")
+    let watcherContext = await page.gotoVideo("direct", "v3ojoy2")
+    console.timeEnd("going to video")
 
     //await watcherContext.comment("Nice video bro")
 }

@@ -15,12 +15,14 @@ async function run(){
         
         proxy,
         headless: false,
+
+        userDataDir: "./test/"
     })
+
 
     let browser = await bot.launch()
     let page = await browser.newPage()
-    //let googleContext = await page.setupGoogle();
-    //await googleContext.login(opts)
+    //let navigator = await page.setupNavigator();
 
     await page.clearCookies()
 
@@ -34,28 +36,10 @@ async function run(){
 
     // normal test
 
-    //let watcherContext = await page.gotoVideo("direct", "efpwEe6CvtI")
-    //console.log(page.videoInfo)
+    console.time("going to video")
+    let watcherContext = await page.gotoVideo("direct", "v4vzt7q")
+    console.timeEnd("going to video")
 
-    // livestream test
-
-    /*let googleContext = await page.setupGoogle()
-    await googleContext.login(opts, cookies)
-    writeFileSync("./cookies.json", JSON.stringify(await page.getCookies()))*/
-
-    let watcherContext = await page.gotoVideo("search", "Tp0dvbONMDU", {
-        forceFind: true
-    })
-
-    console.log("done 1")
-
-    //await watcherContext.comment("This is so cool!!")
-
-    console.log("done final")
-
-    /*(setInterval(async () => {
-        console.log(await watcherContext.time(), await watcherContext.duration(), await watcherContext.time() / await watcherContext.duration())
-
-    }, 500)()*/
+    //await watcherContext.comment("Nice video bro")
 }
 run()

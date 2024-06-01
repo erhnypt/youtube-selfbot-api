@@ -1,8 +1,5 @@
 
-let videoStates_shorts = ["PLAYING", "PAUSED", "FINISHED"]
-let videoStates_normal = ["PLAYING", "PAUSED", "BUFFERING"]
-
-videoStates_normal[-1] = "FINISHED"
+let videoStates = ["PLAYING", "PAUSED", "FINISHED"]
 
 class watcherContext {
     #page = {}
@@ -20,58 +17,16 @@ class watcherContext {
     setup() {
         return new Promise(async (resolve, reject) => {
             try {
-                let currentCookies = await this.#browser.context.cookies().catch(reject)
-                let isLoggedIn = currentCookies.some((v) => v.name == "SOCS")
+                await this.#page.waitForSelector(`.rumbles-vote-pill-up`, { visible: true }).catch(reject);
 
-                if (!isLoggedIn) {
-                    /*let rejectCookies = await Promise.race([
-                        this.#page.waitForSelector("#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.eom-buttons.style-scope.ytd-consent-bump-v2-lightbox > div:nth-child(1) > ytd-button-renderer:nth-child(1) > yt-button-shape > button"),
-                        this.#page.waitForSelector("xpath=/xpath/html/body/c-wiz/div/div/div/div[2]/div[1]/div[3]/div[1]/form[2]/div/div/button/div[1]"),
-                    ]).catch(reject)
-                    if (!rejectCookies) return;
-
-                    await Promise.all([
-                        this.#page.waitForNavigation({ waitUntil: "load" }),
-                        rejectCookies.click(),
-                    ]).catch(reject)*/
-
-                    let declineSelector = "#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.eom-buttons.style-scope.ytd-consent-bump-v2-lightbox > div:nth-child(1) > ytd-button-renderer:nth-child(1) > yt-button-shape > button"
-
-                    let rejectCookies = await Promise.race([
-                        this.#page.waitForSelector(declineSelector, {timeout: 10 * 1000}),
-                        //page.waitForSelector("xpath=/xpath/html/body/c-wiz/div/div/div/div[2]/div[1]/div[3]/div[1]/form[2]/div/div/button/div[1]"),
-                    ]).catch(() => {})
-                    if (rejectCookies){
-                        rejectCookies.click();
-            
-                        await this.#page.waitForSelector(declineSelector, { state: 'hidden' });
-                    }
-                }
-
-                //if (!this.#parent.videoInfo.isLive) {
-                await Promise.race([
-                    this.#page.waitForSelector(`.YtSegmentedLikeDislikeButtonViewModelHost`),
-                    this.#page.waitForSelector(`#segmented-buttons-wrapper`),
-                    this.#page.waitForSelector(`ytd-segmented-like-dislike-button-renderer`),
-                    this.#page.waitForSelector(`#comments-button`),
-                ]).catch(reject)
-                //}
-
-                let isShort = !!(await this.#page.$("#comments-button").catch(reject)) && !this.#parent.videoInfo.isLive
-                let playerSelector = isShort ? `#shorts-player` : `#movie_player`
-                let videoStates = isShort ? videoStates_shorts : videoStates_normal
-                let playerElement = await this.#page.waitForSelector(playerSelector).catch(reject)
-
-                await this.#page.waitForSelector("video").catch(reject)
-
-                this.#parent.videoInfo.isShort = isShort && !this.#parent.videoInfo.isLive
+                let playerElement = await this.#page.waitForSelector(`video`).catch(reject)
                 this.#parent.last_video_request = Date.now()
 
                 let lastState
 
                 let videoStateChanged = (newState) => {
-                    this.#browser.emit("videoStateChanged", lastState, videoStates[newState - 1])
-                    lastState = videoStates[newState - 1]
+                    this.#browser.emit("videoStateChanged", lastState, videoStates[newState])
+                    lastState = videoStates[newState]
                 }
 
                 const hasVideoStateChanged = await this.#page.evaluate(() => !!window.videoStateChanged);
@@ -83,40 +38,31 @@ class watcherContext {
                     }).catch(reject)
                 }
 
+
                 await playerElement.evaluate(p => {
-                    p.addEventListener('onStateChange', videoStateChanged)
+                    p.addEventListener("pause", (event) => {
+                        videoStateChanged(1)
+                    });
+
+                    p.addEventListener("play", (event) => {
+                        videoStateChanged(0)
+                    });
+
+                    p.addEventListener("ended", (event) => {
+                        videoStateChanged(2)
+                    });
                 }).catch(reject)
 
-                if (this.#parent.videoInfo.isLive) {
-                    /*this.#page.evaluate(() => {
-                        document.querySelector(".html5-endscreen").style.display
-                    })*/
+                await this.play()
 
-                    /*this.#page.evaluate(() => {
-                        let interval = setInterval(async () => {
-                            let video = document.querySelector("video")
-                            let lastTime = await getLastTime()
-    
-                            if (video) {
-                                if ((Date.now() - lastTime) > 10000) {
-                                    clearInterval(interval)
-                                    livestreamEnded()
-                                }
-                            }
-    
-                            /*let streamInfo = document.querySelector(`yt-formatted-string.ytd-watch-metadata:nth-child(1) > span:nth-child(3)`)
-                            if(streamInfo){
-                                let text = streamInfo.innerText
-                                if(text.includes("Streamed live") && !text.includes("Started streaming")){
-                                    clearInterval(interval)
-                                    livestreamEnded(text)
-                                }
-                            }
-                        }, 1000)
-                    })*/
-                }
+                let resolutions = await this.resolutions();
+                let resolutionChosen = resolutions.sort((a, b) => a - b)[0]
 
-                this.#parent.__onContinue = resolve
+                await this.setResolution(resolutionChosen)
+
+                this.#parent.__onContinue = resolve;
+
+                setTimeout(() => this.play(), 1000)
             } catch (err) {
                 reject(new Error(err))
             }
@@ -125,16 +71,73 @@ class watcherContext {
 
     async resolutions() {
         return new Promise(async (resolve, reject) => {
-            this.#page.evaluate(() => {
-                return document.getElementById('movie_player').getAvailableQualityLevels()
+            let em = await this.#page.waitForSelector(`div[title="Playback settings"]`).catch(reject)
+            await em.click().catch(reject)
+
+            this.#page.evaluate(async () => {
+                function convertBitrateAbbreviatedNumber(abbreviatedString) {
+                    const abbreviations = {
+                        mbps: 1048576,
+                        kbps: 1024,
+                    };
+
+                    const combo = abbreviatedString.split(" ");
+                    return abbreviations[combo[1]] * parseFloat(combo[0]);
+                }
+
+                let qualities = []
+                let qualityList = Array.from(document.querySelector(`div[title="Playback settings"]`).children[1].children[2].childNodes);
+
+                for (let qualityButton of qualityList) {
+                    let qualityText = Array.from(qualityButton.childNodes)[1].innerText.split(", ")
+                    qualityText[0] = qualityText[0].split("x")
+
+                    if (!qualityText[1]) continue;
+
+                    qualities.push({
+                        width: parseInt(qualityText[0][0]),
+                        height: parseInt(qualityText[0][1]),
+                        bitrate: convertBitrateAbbreviatedNumber(qualityText[1])
+                    })
+                }
+
+                return qualities;
             }).then(resolve).catch(reject)
         })
     }
 
-    async setResolution(quality = "tiny") {
+    async setResolution(quality) {
         return new Promise(async (resolve, reject) => {
-            this.#page.evaluate((quality) => {
-                document.getElementById('movie_player').setPlaybackQualityRange(quality)
+            let em = await this.#page.waitForSelector(`div[title="Playback settings"]`).catch(reject)
+            await em.click().catch(reject)
+
+            this.#page.evaluate(async (quality) => {
+                function convertBitrateAbbreviatedNumber(abbreviatedString) {
+                    const abbreviations = {
+                        mbps: 1048576,
+                        kbps: 1024,
+                    };
+
+                    const combo = abbreviatedString.split(" ");
+                    return abbreviations[combo[1]] * parseFloat(combo[0]);
+                }
+
+
+                let qualityList = Array.from(document.querySelector(`div[title="Playback settings"]`).children[1].children[2].childNodes);
+
+                for (let qualityButton of qualityList) {
+                    let qualityText = Array.from(qualityButton.childNodes)[1].innerText.split(", ")
+                    qualityText[0] = qualityText[0].split("x")
+
+                    if (!qualityText[1]) continue;
+
+                    if (quality.width == qualityText[0][0]
+                        && quality.height == qualityText[0][1]
+                        && quality.bitrate == convertBitrateAbbreviatedNumber(qualityText[1])
+                    ) {
+                        qualityButton.click();
+                    }
+                }
             }, quality).catch(reject).then(resolve)
         })
     }
@@ -142,7 +145,7 @@ class watcherContext {
     async pause() {
         return new Promise(async (resolve, reject) => {
             this.#page.evaluate(() => {
-                let video = Array.from(document.querySelectorAll("video")).pop()
+                let video = Array.from(document.querySelectorAll("video")).shift()
                 video.pause()
             }).catch(reject).then(resolve)
         })
@@ -151,7 +154,7 @@ class watcherContext {
     async play() {
         return new Promise(async (resolve, reject) => {
             this.#page.evaluate(() => {
-                let video = Array.from(document.querySelectorAll("video")).pop()
+                let video = Array.from(document.querySelectorAll("video")).shift()
                 video.play()
             }).catch(reject).then(resolve)
         })
@@ -160,7 +163,7 @@ class watcherContext {
     async seek(time) {
         return new Promise(async (resolve, reject) => {
             this.#page.evaluate((time) => {
-                let video = Array.from(document.querySelectorAll("video")).pop()
+                let video = Array.from(document.querySelectorAll("video")).shift()
                 video.currentTime = time
             }, time).catch(reject).then(resolve)
         })
@@ -169,7 +172,7 @@ class watcherContext {
     async time() {
         return new Promise(async (resolve, reject) => {
             this.#page.evaluate(() => {
-                let video = Array.from(document.querySelectorAll("video")).pop()
+                let video = Array.from(document.querySelectorAll("video")).shift()
                 return video.currentTime
             }).catch(reject).then(resolve)
         })
@@ -178,7 +181,7 @@ class watcherContext {
     async duration() {
         return new Promise(async (resolve, reject) => {
             this.#page.evaluate(() => {
-                let video = Array.from(document.querySelectorAll("video")).pop()
+                let video = Array.from(document.querySelectorAll("video")).shift()
                 return video.duration
             }).catch(reject).then(resolve)
         })
@@ -186,10 +189,7 @@ class watcherContext {
 
     async like() {
         return new Promise(async (resolve, reject) => {
-            let em = await Promise.race([
-                this.#page.waitForSelector(`ytd-menu-renderer.ytd-watch-metadata > div:nth-child(1) > segmented-like-dislike-button-view-model:nth-child(1) > yt-smartimation:nth-child(1) > div:nth-child(1) > div:nth-child(1) > like-button-view-model:nth-child(1) > toggle-button-view-model:nth-child(1) > button:nth-child(1) > yt-touch-feedback-shape:nth-child(3) > div:nth-child(1) > div:nth-child(2)`),
-            ]).catch(reject)
-
+            let em = await this.#page.waitForSelector(`button.rumbles-vote-pill-up.rumblers-vote-pill-button`).catch(reject)
             if (em) await em.click().catch(reject)
 
             resolve(!!em)
@@ -198,21 +198,16 @@ class watcherContext {
 
     async dislike() {
         return new Promise(async (resolve, reject) => {
-            let em = await Promise.race([
-                this.#page.waitForSelector(`ytd-menu-renderer.ytd-watch-metadata > div:nth-child(1) > segmented-like-dislike-button-view-model:nth-child(1) > yt-smartimation:nth-child(1) > div:nth-child(1) > div:nth-child(1) > dislike-button-view-model:nth-child(2) > toggle-button-view-model:nth-child(1) > button:nth-child(1) > yt-touch-feedback-shape:nth-child(2) > div:nth-child(1) > div:nth-child(2)`),
-            ]).catch(reject)
-
+            let em = await this.#page.waitForSelector(`button.rumbles-vote-pill-down.rumblers-vote-pill-button`).catch(reject)
             if (em) await em.click().catch(reject)
 
             resolve(!!em)
         })
     }
 
-    async subscribe() {
+    async follow() {
         return new Promise(async (resolve, reject) => {
-            let em = await Promise.race([
-                this.#page.waitForSelector(`#subscribe-button-shape > button > yt-touch-feedback-shape > div > div.yt-spec-touch-feedback-shape__fill`),
-            ]).catch(reject)
+            let em = await this.#page.waitForSelector(`div.media-by-channel-container > div > div > button`).catch(reject)
 
             if (em) await em.click().catch(reject)
 
@@ -232,45 +227,26 @@ class watcherContext {
 
     async comment(message) {
         return new Promise(async (resolve, reject) => {
-            if(await this.areCommentsLocked().catch(reject)){
+            if (await this.areCommentsLocked().catch(reject)) {
                 return reject(new Error("Unable to make comment because video has comments locked."))
             }
 
             try {
-                if (this.#parent.videoInfo.isShort) {
-                    let comments = await this.#page.waitForSelector(`div:nth-child(3) > ytd-reel-player-overlay-renderer:nth-child(1) > div:nth-child(2) > div:nth-child(4) > ytd-button-renderer:nth-child(1) > yt-button-shape:nth-child(1) > label:nth-child(1) > button:nth-child(1)`).catch(reject)
-                    await comments.click().catch(reject)
-
-                    let em = await this.#page.waitForSelector(`#placeholder-area`).catch(reject)
+                if (this.#parent.videoInfo.isLive) {
+                    let em = await this.#page.waitForSelector(`#chat-message-text-input`).catch(reject)
                     await em.click().catch(reject)
 
                     await this.#page.keyboard.type(message, 25).catch(reject)
 
-                    let submit = await this.#page.waitForSelector(`#submit-button`).catch(reject)
-                    await submit.click().catch(reject)
-
-                    let background = await this.#page.waitForSelector(`#visibility-button > ytd-button-renderer > yt-button-shape > button`).catch(reject)
-                    await background.click().catch(reject)
-                } else if (this.#parent.videoInfo.isLive) {
-                    let chatFrame = this.#page.frames().find(f => f.url().includes("live_chat"))
-                    if (!chatFrame) {
-                        reject(new Error("Unable to find livestream chat"))
-                    }
-
-                    let em = await chatFrame.waitForSelector(`yt-live-chat-text-input-field-renderer.style-scope`).catch(reject)
-                    await em.click().catch(reject)
-
-                    await this.#page.keyboard.type(message, 25).catch(reject)
-
-                    let submit = await chatFrame.waitForSelector(`#message-buttons > #send-button > yt-button-renderer > yt-button-shape > button`).catch(reject)
+                    let submit = await this.#page.waitForSelector(`.chat--send`).catch(reject)
                     await submit.click().catch(reject)
                 } else {
-                    let em = await this.#page.waitForSelector(`#placeholder-area`).catch(reject)
+                    let em = await this.#page.waitForSelector(`.comments-create-textarea`).catch(reject)
                     await em.click().catch(reject)
 
                     await this.#page.keyboard.type(message, 25).catch(reject)
 
-                    let submit = await this.#page.waitForSelector(`#submit-button`).catch(reject)
+                    let submit = await this.#page.waitForSelector(`.comments-add-comment`).catch(reject)
                     await submit.click().catch(reject)
                 }
 

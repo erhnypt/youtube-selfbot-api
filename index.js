@@ -74,7 +74,7 @@ class selfbot {
         this.#opts = {
             headless: opts.headless,
             timeout: this.#extra.timeout,
-            viewport: null
+            viewport: null // TODO: might remove 
         }
     }
 

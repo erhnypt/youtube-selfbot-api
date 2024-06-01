@@ -1,6 +1,6 @@
 {
   "name": "rumble-selfbot-api",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "",
   "main": "index.js",
   "type": "module",
@@ -15,7 +15,7 @@
   "dependencies": {
     "@distube/ytdl-core": "^4.13.3",
     "await-to-js": "^3.0.0",
-    "playwright-anti-fingerprinter": "^1.1.2",
+    "playwright-anti-fingerprinter": "^1.1.5",
     "puppeteer-bandwidth-calculator": "^1.0.0",
     "rumble-core": "^1.0.5",
     "uuid": "^9.0.0"

@@ -120,13 +120,13 @@ class YoutubeSelfbotBrowser {
             const { browser, ipInfo } = await LaunchBrowser("firefox", opts, fingerprint)
 
             this.browser = browser
-            this.context = await browser.newContext(opts)
+            this.context = browser
             this.ipInfo = ipInfo
 
             this.context.setDefaultTimeout(this.extra.timeout)
             this.context.setDefaultNavigationTimeout(this.extra.timeout)
 
-            await (await this.context.newPage()).goto("about:blank") // making initial page
+            //await (await this.context.newPage()).goto("about:blank") // making initial page
 
             for (let extension of extensions) {
                 if (await extension.verify(this.extra)) {

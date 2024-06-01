@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from "fs"
 let opts = JSON.parse(readFileSync("./env.json"))
 let cookies = JSON.parse(readFileSync("./cookies.json"))
 
-let proxy = "direct://"
+let proxy = "socks5://Bloxxy213:BloxxyEMaiWomp_session-jhkc7Uum_lifetime-30m_streaming-1@geo.iproyal.com:32325"
 
 let used = 0;
 

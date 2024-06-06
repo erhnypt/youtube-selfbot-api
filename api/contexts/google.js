@@ -151,6 +151,7 @@ class googleContext {
                         this.#page.waitForSelector(`div[jsname="B34EJ"]`),
                         this.#page.waitForSelector(`[data-challengetype="12"]`),
                         this.#page.waitForSelector(`#identifierId`),
+                        this.#page.waitForSelector(`.mMsbvc`),
                         this.#page.waitForSelector(`xpath=//*[@id="yDmH0d"]/c-wiz/div/div[2]/div/div[1]/div/form/span/div[1]/div[2]/div[2]/span`),
                         this.#page.waitForSelector(`xpath=//*[@id="view_container"]/div/div/div[2]/div/div[1]/div/form/span/section/div/div/span/figure/samp`),
                     ])

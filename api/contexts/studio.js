@@ -2,10 +2,11 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
 const typeOnKeyboard = async (page, inputText) => {
     return new Promise(async (resolve, reject) => {
-        for (let key of inputText.split('')) {
+        /*for (let key of inputText.split('')) {
             await page.keyboard.sendCharacter(key).catch(reject)
             await sleep(25)
-        }
+        }*/
+       await page.keyboard.type(inputText);
 
         resolve()
     })
@@ -65,14 +66,14 @@ class studioContext {
                 await typeOnKeyboard(this.#page, opts.description).catch(reject)
 
                 if (opts.thumbnail) {
-                    await this.#page.waitForSelector(`button.ytcp-thumbnails-compact-editor-uploader-old`).catch(reject)
+                    await this.#page.waitForSelector(`#select-button`).catch(reject)
 
                     let [fileChooser] = await Promise.all([
-                        this.#page.waitForFileChooser(),
-                        this.#page.click(`button.ytcp-thumbnails-compact-editor-uploader-old`)
+                        this.#page.waitForEvent('filechooser'),
+                        this.#page.click(`#select-button`)
                     ]).catch(reject)
 
-                    await fileChooser.accept([opts.thumbnail]).catch(reject)
+                    await fileChooser.setFiles([opts.thumbnail]);
                 }
 
                 let toggleButtons = await this.#page.$$(`#radioLabel > ytcp-ve`)
@@ -89,8 +90,8 @@ class studioContext {
                 if (opts.paidPromotion) await this.#page.click(`xpath//html/body/ytcp-uploads-dialog/tp-yt-paper-dialog/div/ytcp-animatable[1]/ytcp-ve/ytcp-video-metadata-editor/div/ytcp-video-metadata-editor-advanced/div[1]/ytcp-checkbox-lit/div[1]/div`).catch(reject)
 
                 if (opts.tags.length > 0) {
-                    await this.#parent.waitForXPath(`/html/body/ytcp-uploads-dialog/tp-yt-paper-dialog/div/ytcp-animatable[1]/ytcp-ve/ytcp-video-metadata-editor/div/ytcp-video-metadata-editor-advanced/div[4]/ytcp-form-input-container/div[1]/div/ytcp-free-text-chip-bar/ytcp-chip-bar/div/input`)
-                    await this.#page.click(`xpath//html/body/ytcp-uploads-dialog/tp-yt-paper-dialog/div/ytcp-animatable[1]/ytcp-ve/ytcp-video-metadata-editor/div/ytcp-video-metadata-editor-advanced/div[4]/ytcp-form-input-container/div[1]/div/ytcp-free-text-chip-bar/ytcp-chip-bar/div/input`).catch(reject)
+                    await this.#parent.waitForSelector(`.ytcp-video-metadata-editor-advanced > ytcp-form-input-container > div > div > ytcp-free-text-chip-bar > ytcp-chip-bar > div > #text-input`)
+                    await this.#page.click(`.ytcp-video-metadata-editor-advanced > ytcp-form-input-container > div > div > ytcp-free-text-chip-bar > ytcp-chip-bar > div > #text-input`).catch(reject)
                     await sleep(500)
 
                     await typeOnKeyboard(this.#page, opts.tags.join(",") + ",").catch(reject)
@@ -126,14 +127,17 @@ class studioContext {
                         let newElement = await this.#parent.waitForXPath(`/html/body/ytcp-playlist-dialog/tp-yt-paper-dialog/div[2]/div/ytcp-button/div`).catch(reject)
                         await this.#page.evaluate(e => e.click(), newElement)
 
+                        let playlistMode = await this.#parent.waitForSelector(`#text-item-0 > ytcp-ve > tp-yt-paper-item-body > div > div > div > yt-formatted-string`);
+                        await this.#page.evaluate(e => e.click(), playlistMode);
+
                         let newPlaylist = await Promise.race([
                             this.#parent.waitForXPath(`/html/body/ytcp-playlist-dialog/tp-yt-paper-dialog/div[2]/div/ytcp-text-menu/tp-yt-paper-dialog/tp-yt-paper-listbox/tp-yt-paper-item[1]/ytcp-ve/div/div/yt-formatted-string`),
                             this.#parent.waitForXPath(`/html/body/ytcp-playlist-creation-dialog/ytcp-dialog/tp-yt-paper-dialog/div[2]/div/ytcp-playlist-metadata-editor/div/div[1]/ytcp-social-suggestions-textbox/ytcp-form-input-container/div[1]/div[2]/div/ytcp-social-suggestion-input/div`),
                         ]).catch(reject)
 
-                        if (await this.#page.$x(`/html/body/ytcp-playlist-dialog/tp-yt-paper-dialog/div[2]/div/ytcp-text-menu/tp-yt-paper-dialog/tp-yt-paper-listbox/tp-yt-paper-item[1]/ytcp-ve/div/div/yt-formatted-string`).catch(reject)) {
+                        //if (await this.#page.$x(`/html/body/ytcp-playlist-dialog/tp-yt-paper-dialog/div[2]/div/ytcp-text-menu/tp-yt-paper-dialog/tp-yt-paper-listbox/tp-yt-paper-item[1]/ytcp-ve/div/div/yt-formatted-string`).catch(reject)) {
                             await this.#page.evaluate(e => e.click(), newPlaylist)
-                        }
+                        //}
 
                         await sleep(500)
 
@@ -153,9 +157,9 @@ class studioContext {
                     await this.#page.click(`#dialog > div.action-buttons.style-scope.ytcp-playlist-dialog > ytcp-button.done-button.action-button.style-scope.ytcp-playlist-dialog`).catch(reject)
                 }
 
-                await this.#parent.waitForXPath(`/html/body/ytcp-uploads-dialog/tp-yt-paper-dialog/div/ytcp-animatable[1]/ytcp-ve/ytcp-video-metadata-editor/div/ytcp-video-metadata-editor-advanced/div[5]/div[3]/ytcp-form-language-input/ytcp-form-select/ytcp-select/ytcp-text-dropdown-trigger`).catch(reject)
+                let langList = await this.#parent.waitForXPath(`/html/body/ytcp-uploads-dialog/tp-yt-paper-dialog/div/ytcp-animatable[1]/ytcp-ve/ytcp-video-metadata-editor/div/ytcp-video-metadata-editor-advanced/div[7]/div[3]/ytcp-form-language-input/ytcp-form-select/ytcp-select/ytcp-text-dropdown-trigger/ytcp-dropdown-trigger/div`).catch(reject)
                 await sleep(500);
-                await this.#page.click(`xpath//html/body/ytcp-uploads-dialog/tp-yt-paper-dialog/div/ytcp-animatable[1]/ytcp-ve/ytcp-video-metadata-editor/div/ytcp-video-metadata-editor-advanced/div[5]/div[3]/ytcp-form-language-input/ytcp-form-select/ytcp-select/ytcp-text-dropdown-trigger`).catch(reject)
+                await langList.click().catch(reject)
 
                 const langButton = await this.#parent.waitForXPath(`//*[starts-with(translate(text(),"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz"), '${opts.language.toLowerCase()}')]`).catch(reject)
 
@@ -297,19 +301,24 @@ class studioContext {
                 console.log(1)
 
                 await Promise.race([
-                    await this.#page.waitForSelector(`#query-input`),
-                    await this.#page.waitForSelector(`#error-message`, { visible: true }),
+                    await this.#page.waitForSelector(`#add-translations-button`, { visible: true }),
+                    //await this.#page.waitForSelector(`#error-message`, { visible: true }),
                 ]).catch(reject)
 
                 console.log(2)
-                if (this.#page.$(`#query-input`)) {
+                if (this.#page.$(`#add-translations-button`)) {
                     let addButton = await this.#page.waitForSelector(`#add-translations-button`).catch(reject)
                     await addButton.click().catch(reject)
 
-                    await this.#page.waitForSelector(`#text-item-0 > ytcp-ve:nth-child(1) > div:nth-child(3)`, { visible: true }).catch(reject)
+                    /*await this.#page.waitForSelector(`#text-item-0 > ytcp-ve:nth-child(1) > div:nth-child(3)`, { visible: true }).catch(reject)
                     await typeOnKeyboard(this.#page, language).catch(reject)
 
-                    await this.#page.keyboard.press("Enter").catch(reject)
+                    await this.#page.keyboard.press("Enter").catch(reject)*/
+
+                    const langButton = await this.#parent.waitForXPath(`//*[starts-with(translate(text(),"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz"), '${language.toLowerCase()}')]`).catch(reject)
+
+                    if (!langButton) return reject(new Error(`Invalid language`))
+                    await this.#page.evaluate((el) => el.click(), langButton)
 
                     switch (type) {
                         case "file":

@@ -112,19 +112,15 @@ class YoutubeSelfbotBrowser {
 
             let opts = {
                 ...this.opts,
-                ...this.extra,
                 serviceWorkers: "block",
                 bypassCSP: true,
             }
+
 
             const { browser, ipInfo } = await LaunchBrowser("firefox", opts, fingerprint)
 
             this.browser = browser
             this.context = browser
-<<<<<<< HEAD
-=======
-            //this.context = await browser.newContext(opts)
->>>>>>> 1b511ef864a1fdc96550b893b373c4ecc4a19212
             this.ipInfo = ipInfo
 
             this.context.setDefaultTimeout(this.extra.timeout)
@@ -139,7 +135,10 @@ class YoutubeSelfbotBrowser {
             }
 
             await this.context.addInitScript(() => {
-                localStorage.setItem('volume', `0`);
+                let DateNow = Date.now()
+                let DateYear = DateNow + 31536000000
+                localStorage.setItem('yt-player-quality', `{\"data\":\"{\\\"quality\\\":144,\\\"previousQuality\\\":240}\",\"expiration\":${DateYear},\"creation\":${DateNow}}`);
+                localStorage.setItem('yt-player-volume', `{"data":"{\\"volume\\":0,\\"muted\\":false}","expiration":${DateYear},"creation":${DateNow}}`);
             }).catch(reject)
 
             resolve()
@@ -157,7 +156,7 @@ class YoutubeSelfbotBrowser {
 
                 await page.context().clearCookies();
 
-                await page.goto("https://www.rumble.com");
+                await page.goto("https://www.youtube.com");
                 await page.evaluate(() => localStorage.clear());
 
                 await page.close();
@@ -202,9 +201,8 @@ class YoutubeSelfbotBrowser {
 
         page.on("response", async (res) => {
             let req = res.request()
-            let url = await req.url()
 
-            let isVideo = url.includes("hugh.cdn.rumble.cloud/video") || url.includes("hugh.cdn.rumble.cloud/live")
+            let isVideo = (await req.url()).includes("googlevideo.com")
 
             if (isVideo) {
                 if (pgClass.__onContinue) {

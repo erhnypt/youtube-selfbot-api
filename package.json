@@ -1,11 +1,6 @@
 {
-<<<<<<< HEAD
   "name": "youtube-selfbot-api",
   "version": "4.2.0",
-=======
-  "name": "rumble-selfbot-api",
-  "version": "1.0.5",
->>>>>>> 1b511ef864a1fdc96550b893b373c4ecc4a19212
   "description": "",
   "main": "index.js",
   "type": "module",
@@ -22,7 +17,6 @@
     "await-to-js": "^3.0.0",
     "playwright-anti-fingerprinter": "^1.1.5",
     "puppeteer-bandwidth-calculator": "^1.0.0",
-    "rumble-core": "^1.0.5",
     "uuid": "^9.0.0"
   }
 }

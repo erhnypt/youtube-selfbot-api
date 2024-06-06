@@ -1,0 +1,17 @@
+{
+  "name": "puppeteer-bandwidth-calculator",
+  "version": "1.0.0",
+  "description": "Extension to calculate bandwidth used by puppeteer network requests and responses",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "playwright": "^1.37.1",
+    "puppeteer": "^21.1.1"
+  },
+  "keywords": [],
+  "author": "Bloxxy",
+  "license": "MIT"
+}

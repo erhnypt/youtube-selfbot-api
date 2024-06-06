@@ -1,5 +1,27 @@
 const { default: to } = require("await-to-js")
 
+
+async function checkCookiesAndHandleConsent(page) {
+    const currentCookies = await page.context().cookies();
+    let isLoggedIn = currentCookies.some((v) => v.name == "SOCS")
+
+    if (!isLoggedIn) {
+        let declineSelector = "#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.eom-buttons.style-scope.ytd-consent-bump-v2-lightbox > div:nth-child(1) > ytd-button-renderer:nth-child(1) > yt-button-shape > button"
+
+        let rejectCookies = await Promise.race([
+            page.waitForSelector(declineSelector, {timeout: 10 * 1000}),
+            //page.waitForSelector("xpath=/xpath/html/body/c-wiz/div/div/div/div[2]/div[1]/div[3]/div[1]/form[2]/div/div/button/div[1]"),
+        ]).catch(() => {})
+        if (!rejectCookies) return;
+
+        rejectCookies.click();
+
+        await page.waitForSelector(declineSelector, { state: 'hidden' });
+
+        await page.waitForSelector(`#contents`);
+    }
+}
+
 function clickVideoLink(page, videoInfo, scrollAmount) {
     return page.evaluate(({ videoInfo, scrollAmount }) => {
         return new Promise((resolve, reject) => {
@@ -58,17 +80,18 @@ async function navigateToVideoPage(page, videoInfo, options) {
 
 function forceFindVideo(page, videoInfo) {
     return page.evaluate((videoInfo) => {
-        const finalURL = `https://rumble.com/${videoInfo.id}`;
+        const urlFormat = videoInfo.isShort ? "shorts/" : "watch?v=";
+        const finalURL = `https://www.youtube.com/${urlFormat}${videoInfo.id}`;
         const urlDocuments = document.querySelectorAll("a");
         let chosen;
 
         for (const urlDocument of urlDocuments) {
             const url = urlDocument.href;
-            //if (!(url.includes("https://rumble.com/"))) {
+            if (!(url.includes("?watch?v=") || url.includes("/shorts"))) {
                 urlDocument.href = finalURL;
                 chosen = urlDocument;
                 break;
-            //}
+            }
         }
 
         chosen.click();
@@ -79,8 +102,10 @@ async function main(pageContainer, options) {
     const videoInfo = pageContainer.videoInfo;
     const page = pageContainer.page;
 
-    await page.goto(`https://rumble.com/`, { waitUntil: "networkidle" })
-    await page.waitForSelector(`.nonconstrained`);
+    await page.goto(`https://www.youtube.com/`, { waitUntil: "networkidle" })
+    await page.waitForSelector(`#contents`)
+
+    await checkCookiesAndHandleConsent(page);
 
     if (options.forceFind) {
         try {

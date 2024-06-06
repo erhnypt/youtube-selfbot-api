@@ -68,13 +68,14 @@ class selfbot {
             timeout: typeof opts.timeout == "number" ? opts.timeout : 30000,
             autoSkipAds: opts.autoSkipAds,
             fingerprint: opts.fingerprint,
-            userDataDir: opts.userDataDir
+            userDataDir: opts.userDataDir,
+            ignorePluginsStealth: opts.ignorePluginsStealth,
         }
 
         this.#opts = {
             headless: opts.headless,
             timeout: this.#extra.timeout,
-            viewport: null // TODO: might remove 
+            viewport: null
         }
     }
 

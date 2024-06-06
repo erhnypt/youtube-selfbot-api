@@ -1,6 +1,6 @@
 const { default: to } = require("await-to-js")
 
-/*let filter_paths = {
+let filter_paths = {
     upload_date: {
         last_hour: `ytd-search-filter-group-renderer.style-scope:nth-child(1) > ytd-search-filter-renderer:nth-child(2) > a`,
         today: `ytd-search-filter-group-renderer.style-scope:nth-child(1) > ytd-search-filter-renderer:nth-child(4) > a`,
@@ -8,7 +8,7 @@ const { default: to } = require("await-to-js")
         this_month: `ytd-search-filter-group-renderer.style-scope:nth-child(1) > ytd-search-filter-renderer:nth-child(8) > a`,
         this_year: `ytd-search-filter-group-renderer.style-scope:nth-child(1) > ytd-search-filter-renderer:nth-child(10) > a`,
     },
-    license: {
+    type: {
         video: `ytd-search-filter-group-renderer.style-scope:nth-child(2) > ytd-search-filter-renderer:nth-child(2) > a`,
         channel: `ytd-search-filter-group-renderer.style-scope:nth-child(2) > ytd-search-filter-renderer:nth-child(4) > a`,
         playlist: `ytd-search-filter-group-renderer.style-scope:nth-child(2) > ytd-search-filter-renderer:nth-child(6) > a`,
@@ -38,27 +38,53 @@ const { default: to } = require("await-to-js")
         view_count: `ytd-search-filter-group-renderer.style-scope:nth-child(5) > ytd-search-filter-renderer:nth-child(5) > a`,
         rating: `ytd-search-filter-group-renderer.style-scope:nth-child(5) > ytd-search-filter-renderer:nth-child(6) > a`,
     },
-}*/
+}
 
 async function gotoVideo(page, title) {
-    await page.goto(`https://rumble.com/search/all?q=${encodeURIComponent(title)}`, { waitUntil: "networkidle" });
-    await page.waitForSelector(`.padded-content`);
+    await page.goto(`https://www.youtube.com/results?search_query=${title}`, { waitUntil: "networkidle" });
+    await page.waitForSelector(`#contents`);
 }
 
 async function foundVideo(page){
     const [found] = await to(Promise.race([
-        page.waitForSelector(".main-and-sidebar > .flex-1 > ol"),
-        page.waitForSelector(".main-and-sidebar > .flex-1"),
+        page.waitForSelector("ytd-video-renderer.ytd-item-section-renderer"),
+        page.waitForSelector(".promo-title"),
     ]));
 
-    if (await page.$(`.main-and-sidebar > .flex-1 > ol`)) {
-        return true;
+    if (await page.$(`.promo-title`)) {
+        return false;
     }
 
-    return false;
+    return true;
 }
 
-/*async function applyFilter(page, filterName, filterValue) {
+async function checkCookiesAndHandleConsent(page) {
+    const currentCookies = await page.context().cookies();
+    let isLoggedIn = currentCookies.some((v) => v.name == "SOCS")
+
+    if (!isLoggedIn) {
+        /*const acceptCookies = await Promise.race([
+            page.waitForSelector("ytd-button-renderer.ytd-consent-bump-v2-lightbox:nth-child(2) > yt-button-shape:nth-child(1) > button:nth-child(1)"),
+            page.waitForSelector(".csJmFc > form:nth-child(3) > div:nth-child(1) > div:nth-child(1) > button:nth-child(1) > div:nth-child(3)"),
+        ]);*/
+
+        let declineSelector = "#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.eom-buttons.style-scope.ytd-consent-bump-v2-lightbox > div:nth-child(1) > ytd-button-renderer:nth-child(1) > yt-button-shape > button"
+
+        let rejectCookies = await Promise.race([
+            page.waitForSelector(declineSelector, {timeout: 10 * 1000}),
+            //page.waitForSelector("xpath=/xpath/html/body/c-wiz/div/div/div/div[2]/div[1]/div[3]/div[1]/form[2]/div/div/button/div[1]"),
+        ]).catch(() => {})
+        if (!rejectCookies) return;
+
+        rejectCookies.click();
+
+        await page.waitForSelector(declineSelector, { state: 'hidden' });
+
+        await page.waitForSelector(`#contents`);
+    }
+}
+
+async function applyFilter(page, filterName, filterValue) {
     if (filterName !== "features") {
         const filtersButton = await page.waitForSelector(`button.yt-spec-button-shape-next--icon-trailing`);
         if (!filtersButton) return;
@@ -142,21 +168,22 @@ async function foundVideo(page){
     if (!found) {
         throw new Error("No video found for filter selection");
     }
-}*/
+}
 
 function forceFindVideo(page, videoInfo) {
     return page.evaluate((videoInfo) => {
-        const finalURL = `https://rumble.com/${videoInfo.id}`;
+        const urlFormat = videoInfo.isShort ? "shorts/" : "watch?v=";
+        const finalURL = `https://www.youtube.com/${urlFormat}${videoInfo.id}`;
         const urlDocuments = document.querySelectorAll("a");
         let chosen;
 
         for (const urlDocument of urlDocuments) {
             const url = urlDocument.href;
-            //if (!(url.includes("https://rumble.com/"))) {
+            if (!(url.includes("?watch?v=") || url.includes("/shorts"))) {
                 urlDocument.href = finalURL;
                 chosen = urlDocument;
                 break;
-            //}
+            }
         }
 
         chosen.click();
@@ -198,7 +225,6 @@ async function navigateToVideoPage(page, videoInfo, options) {
             page.waitForNavigation(),
             videoFound.click(),
         ]);
-
         return true;
     }
 
@@ -213,7 +239,7 @@ async function navigateToVideoPage(page, videoInfo, options) {
             page.waitForNavigation(),
             wasFound.click(),
         ]);
-        return true;
+        return !!wasFound;
     }
 
     return false;
@@ -221,21 +247,23 @@ async function navigateToVideoPage(page, videoInfo, options) {
 
 async function main(pageContainer, options) {
     const videoInfo = pageContainer.videoInfo;
-    const title = options.title || videoInfo.title;
+    const title = (options.title || videoInfo.title).split(" ").join("+");
     const page = pageContainer.page;
 
     await gotoVideo(page, title);
+    await checkCookiesAndHandleConsent(page);
+
     const canSearchVideo = await foundVideo(page);
 
     if (!canSearchVideo) {
         throw new Error("No video found for search");
     }
 
-    /*if (options.filters) {
+    if (options.filters) {
         for (const filterName in options.filters) {
             await applyFilter(page, filterName, options.filters[filterName]);
         }
-    }*/
+    }
 
     if (options.forceFind) {
         try {

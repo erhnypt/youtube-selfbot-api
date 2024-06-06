@@ -8,8 +8,10 @@ import { fileURLToPath } from 'url';
 let __dirname = dirname(fileURLToPath(import.meta.url));
 let require = createRequire(import.meta.url);
 
+
 import watcher from "./contexts/watcher.js"
-import navigator from "./contexts/navigator.js"
+import google from "./contexts/google.js"
+import studio from "./contexts/studio.js"
 
 import * as path from "path"
 import * as uuid from "uuid"
@@ -74,6 +76,7 @@ async function requestInterceptor(page, requestData, route) {
 
 let methodFunctions = {
     search: require(path.join(__dirname, "/functions/search.cjs")),
+    subscribers: require(path.join(__dirname, "/functions/subscribers.cjs")),
     suggestions: require(path.join(__dirname, "/functions/suggestions.cjs")),
 }
 
@@ -167,10 +170,16 @@ class YoutubeSelfbotPage {
     async initPage(){
         await this.page.unroute("**/**")
 
+        let evasionsIgnored = []
+
+        if(this.extra.ignorePluginsStealth){
+            evasionsIgnored.push("plugins")
+        }
+
         await ConnectFingerprinter("firefox", this.page, {
             fingerprint: this.browser.fingerprint,
             requestInterceptor
-        }, ["media"])
+        }, evasionsIgnored)
     }
 
     gotoVideo(method = "direct", id, options = {}) {
@@ -215,6 +224,14 @@ class YoutubeSelfbotPage {
                             console.error(`Error navigating to video using "suggestions": ${err}`)
                         }
                         break;
+                    case "subscribers":
+                        var [err, wasFound] = await to(methodFunctions.subscribers(this, options))
+                        success = !(err || !wasFound)
+
+                        if(!success){
+                            console.error(`Error navigating to video using "subscribers": ${err}`)
+                        }
+                        break;
                     default:
                         success = false
                         break;
@@ -237,28 +254,54 @@ class YoutubeSelfbotPage {
         })
     }
 
+    setupGoogle() {
+        return new Promise(async (resolve, reject) => {
+            let googleContext = this.createGoogleContext()
+            await googleContext.setup().catch(reject)
+
+            resolve(googleContext)
+        })
+    }
+
+    setupStudio() {
+        return new Promise(async (resolve, reject) => {
+            let studioContext = this.createStudioContext()
+            //await studioContext.setup().catch(reject)
+
+            resolve(studioContext)
+        })
+    }
+
+    createStudioContext() {
+        let context = new studio(this.page, this, this.extra, this.browser)
+        return context
+    }
+
     createWatcherContext() {
         let context = new watcher(this.page, this, this.extra, this.browser)
         return context
     }
 
-    setupNavigator() {
-        return new Promise(async (resolve, reject) => {
-            let navigatorContext = this.createNavigatorContext()
-            await navigatorContext.setup().catch(reject)
-
-            resolve(navigatorContext)
-        })
-    }
-
-    createNavigatorContext() {
-        let context = new navigator(this.page, this, this.extra, this.browser)
+    createGoogleContext() {
+        let context = new google(this.page, this, this.extra, this.browser)
         return context
     }
 
     getCookies() {
         return new Promise(async (resolve, reject) => {
             let cookies = await this.browser.context.cookies().catch(reject)
+
+            let result = []
+            let blacklist = [
+                "ACCOUNT_CHOOSER",
+                "LSID"
+            ]
+
+            for (let cookie of cookies) {
+                if (!blacklist.includes(cookie.name)) {
+                    result.push(cookie)
+                }
+            }
 
             resolve(cookies)
         })
@@ -301,7 +344,7 @@ class YoutubeSelfbotPage {
                         res.push({
                             name,
                             value,
-                            domain: ".rumble.com",
+                            domain: ".youtube.com",
                             path: "/",
                             expires: Date.now() + 657000000,
                             size: name.length + value.length,

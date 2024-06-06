@@ -56,7 +56,7 @@ class selfbot {
                 throw new Error(`Error creating temporary folder: ${err}`);
             }
         }
-
+        
         let proxy
 
         if (opts.proxy !== "direct" && opts.proxy !== "direct://" && typeof (opts.proxy) == "string" && opts.proxy.trim().length > 0) {
@@ -68,13 +68,13 @@ class selfbot {
             timeout: typeof opts.timeout == "number" ? opts.timeout : 30000,
             autoSkipAds: opts.autoSkipAds,
             fingerprint: opts.fingerprint,
-            userDataDir: opts.userDataDir,
             ignorePluginsStealth: opts.ignorePluginsStealth,
         }
 
         this.#opts = {
             headless: opts.headless,
             timeout: this.#extra.timeout,
+            userDataDir: opts.userDataDir,
             viewport: null
         }
     }

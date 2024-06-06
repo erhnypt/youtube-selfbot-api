@@ -51,11 +51,11 @@ class studioContext {
                 await this.#page.waitForSelector(`#select-files-button`).catch(reject)
 
                 let [fileChooser] = await Promise.all([
-                    this.#page.waitForFileChooser(),
+                    this.#page.waitForEvent('filechooser'),
                     this.#page.click(`#select-files-button`)
                 ]).catch(reject)
 
-                await fileChooser.accept([video]).catch(reject)
+                await fileChooser.setFiles([video]);
 
                 let titleBox = await this.#page.waitForSelector(`#title-textarea`).catch(reject)
                 await titleBox.click({ clickCount: 3 })

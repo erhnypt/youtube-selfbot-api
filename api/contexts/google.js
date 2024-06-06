@@ -22,8 +22,8 @@ class googleContext {
         return new Promise(async (resolve) => {
             await this.#page.goto(`https://myaccount.google.com/email`)
             let el = await Promise.race([
-                this.#page.waitForSelector(`xpath=/html/body/c-wiz/div/div[2]/div[2]/c-wiz/div/div[4]/article/div/div/ul/li/div/div/div`),
                 this.#page.waitForSelector(`#identifierId`),
+                this.#page.waitForSelector(`.mMsbvc`),
             ])
 
             let emailBox = await this.#page.$(`#identifierId`)
@@ -62,8 +62,8 @@ class googleContext {
             try {
                 await this.#page.goto(`https://myaccount.google.com/email`)
                 let el = await Promise.race([
-                    this.#page.waitForSelector(`xpath=/html/body/c-wiz/div/div[2]/div[2]/c-wiz/div/div[4]/article/div/div/ul/li/div/div/div`),
                     this.#page.waitForSelector(`#identifierId`),
+                    this.#page.waitForSelector(`.mMsbvc`),
                 ])
 
                 if (typeof cookies == "string" || typeof cookies == "object") {
@@ -72,8 +72,8 @@ class googleContext {
                     await this.#page.goto(`https://myaccount.google.com/email`)
 
                     el = await Promise.race([
-                        this.#page.waitForSelector(`xpath=/html/body/c-wiz/div/div[2]/div[2]/c-wiz/div/div[4]/article/div/div/ul/li/div/div/div`),
                         this.#page.waitForSelector(`#identifierId`),
+                        this.#page.waitForSelector(`.mMsbvc`),
                     ])
                 }
 
@@ -150,7 +150,7 @@ class googleContext {
                         this.#page.waitForSelector(`div[jsname="bySMBb"]`),
                         this.#page.waitForSelector(`div[jsname="B34EJ"]`),
                         this.#page.waitForSelector(`[data-challengetype="12"]`),
-                        this.#page.waitForSelector(`xpath=/html/body/c-wiz/div/div[2]/div[2]/c-wiz/div/div[4]/article/div/div/ul/li/div/div/div`),
+                        this.#page.waitForSelector(`#identifierId`),
                         this.#page.waitForSelector(`xpath=//*[@id="yDmH0d"]/c-wiz/div/div[2]/div/div[1]/div/form/span/div[1]/div[2]/div[2]/span`),
                         this.#page.waitForSelector(`xpath=//*[@id="view_container"]/div/div/div[2]/div/div[1]/div/form/span/section/div/div/span/figure/samp`),
                     ])
@@ -231,7 +231,7 @@ class googleContext {
                         ])
                     }
 
-                    await this.#page.waitForSelector(`xpath=/html/body/c-wiz/div/div[2]/div[2]/c-wiz/div/div[4]/article/div/div/ul/li/div/div/div`)
+                    await this.#page.waitForSelector(`.mMsbvc`)
 
                     this.currentAccount = {
                         ...accountInfo,

@@ -22,7 +22,7 @@ function parseProxyUrl(proxyUrl) {
 
 async function getVideoInfo(id, proxy, cookies) {
     let agent = ytdl.createAgent((cookies || []).filter((cookie) => cookie.domain == ".youtube.com"))
-    let info = await ytdl.getBasicInfo(id, agent)
+    let info = await ytdl.getInfo(id, agent)
 
     let vFormat = info.formats
         .filter((v) => v.width && v.height)

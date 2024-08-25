@@ -75,7 +75,6 @@ class selfbot {
             headless: opts.headless,
             timeout: this.#extra.timeout,
             userDataDir: opts.userDataDir,
-            viewport: null
         }
     }
 
